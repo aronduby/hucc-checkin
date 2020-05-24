@@ -53,6 +53,7 @@ class TwilioController extends Controller
             $rsp->message('Thanks for checking in. When you leave remember to text the word OUT to check out.');
         } catch (\Exception $e) {
             $rsp->message('Sorry, but something went wrong, please try checking in again');
+            Log::error($e->getMessage());
         }
 
         print $rsp;
