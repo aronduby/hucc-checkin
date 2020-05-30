@@ -74,9 +74,12 @@ class TwilioController extends Controller
     public function in($from, $ts = false) {
         // create a checkin (maybe check for an unclosed checkin first?)
         // get a name if it doesn't already exist (eventually)
+        $ts = $ts ? $ts : now();
+
         Checkin::create([
             'phone' => $from,
-            'in' => $ts ? $ts : now()
+            'in' => $ts,
+            'reminded' => $ts
         ]);
 
         return 'Thanks for checking in. When you leave remember to text the word OUT to check out.';

@@ -17,6 +17,7 @@ class Checkin extends Model
         return [
             'in',
             'out',
+            'reminded',
             'created_at',
             'updated_at',
         ];
