@@ -22,75 +22,90 @@ class TwilioController extends Controller
     }
 
     public function incoming(Request $request) {
-        // figure out if we're doing a checkin or out
         $msg = $request->input('Body');
+        $from = $request->input('From');
+        $rspMsg = 'How did you get this response?!?!??!?';
 
-        if (Str::startsWith(strtoupper($msg), 'IN')) {
-            $this->in($request);
-        } elseif (Str::startsWith(strtoupper($msg), 'OUT')) {
-            $this->out($request);
+        $matched = preg_match_all('/(in|out) ?([\d:apm]+)?/i', $msg, $matches);
+
+        // 0 => array of all the full matches - command + arguments
+        // 1 => array of all the commands - in|out
+        // 2 => array of all the arguments - time
+
+        if (!$matched) {
+            $rspMsg = $this->help($request);
         } else {
-            $this->help($request);
+            try {
+                for ($i = 0; $i < count($matches[1]); $i++) {
+                    $cmd = $matches[1][$i];
+                    $ts = strtotime($matches[2][$i]);
+
+                    switch (strtoupper($cmd)) {
+                        case 'IN':
+                            $rspMsg = $this->in($from, $ts);
+                            break;
+
+                        case 'OUT':
+                            $rspMsg = $this->out($from, $ts);
+                            break;
+
+                        default:
+                            $rspMsg = $this->help($request);
+                            break;
+                    }
+                }
+            } catch (\Exception $e) {
+                $rspMsg = 'Sorry, but something went wrong. Please try that again.';
+            }
         }
+
+        $rsp = new MessagingResponse();
+        $rsp->message($rspMsg);
+        print $rsp;
     }
 
     /**
      * Actions to check the user in
      *
-     * @param Request $request
+     * @param string $from the phone number its from
+     * @param bool|string|int $ts the timestamp supplied as the argument
+     * @return string the response message
      */
-    public function in(Request $request) {
+    public function in($from, $ts = false) {
         // create a checkin (maybe check for an unclosed checkin first?)
         // get a name if it doesn't already exist (eventually)
-        $rsp = new MessagingResponse();
+        Checkin::create([
+            'phone' => $from,
+            'in' => $ts ? $ts : now()
+        ]);
 
-        try {
-            $checkin = Checkin::create([
-                'phone' => $request->input('From'),
-                'in' => now()
-            ]);
-
-            $rsp->message('Thanks for checking in. When you leave remember to text the word OUT to check out.');
-        } catch (\Exception $e) {
-            $rsp->message('Sorry, but something went wrong, please try checking in again');
-            Log::error($e->getMessage());
-        }
-
-        print $rsp;
+        return 'Thanks for checking in. When you leave remember to text the word OUT to check out.';
     }
 
     /**
      * Actions to check the user out
      *
-     * @param Request $request
+     * @param string $from the phone number its from
+     * @param bool|string|int $ts the timestamp supplied as the argument
+     * @return string the response message
      */
-    public function out(Request $request) {
+    public function out($from, $ts = false) {
         // get an unclosed checkin and close it
-        $rsp = new MessagingResponse();
 
-        $existing = Checkin::open()->where('phone', '=', $request->input('From'))->first();
+        $existing = Checkin::open()->where('phone', '=', $from)->first();
         if (!$existing) {
-            $rsp->message('We were unable to find an open checkin for this number. You need to send IN first');
+            return 'We were unable to find an open checkin for this number. You need to send IN first';
+
         } else {
+            $existing->out = $ts ? $ts : now();
+            $existing->save();
 
-            try {
-                $existing->out = now();
-                $existing->save();
-                $rsp->message("You've been checked out. Thanks for helping us stay safe!");
-
-            } catch (\Exception $e) {
-                $rsp->message('Sorry, but something went wrong, please try checking in again');
-            }
+            return "You've been checked out. Thanks for helping us stay safe!";
         }
-
-        print $rsp;
     }
 
     public function help(Request $request) {
         Log::warning('Unknown SMS received', $request->all());
-        $smsRsp = new MessagingResponse();
-        $smsRsp->message("Sorry, I don't know how to handle that message. To check in send IN, to check out send OUT");
-
-        print $smsRsp;
+        return "Sorry, I don't know how to handle that message. To check in send IN, to check out send OUT";
     }
 }

@@ -13,6 +13,15 @@ class Checkin extends Model
      */
     protected $fillable = ['phone', 'in', 'out'];
 
+    public function getDates() {
+        return [
+            'in',
+            'out',
+            'created_at',
+            'updated_at',
+        ];
+    }
+
     /**
      * Has one person through the phone number
      *
