@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -27,5 +28,12 @@ class AppServiceProvider extends ServiceProvider
         // fixes key to long
         // laravel-news.com/laravel-5-4-key-too-long-error
         Schema::defaultStringLength(191);
+
+        // SAML urls will be generated as http without this
+        URL::forceScheme('https');
+
+        if (env('APP_ENV') === 'local') {
+            unset($_SERVER['SERVER_PORT']);
+        }
     }
 }
